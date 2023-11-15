@@ -16,7 +16,7 @@ class BPA {
     int* log_ptr; // Buffered inserts that propogate out to the rest of the array
     int* header_ptr; // Each space in header_ptr + i holds the minimum element for block i
     int* blocks_ptr; // Rest of the elemetns in chunks of block_size elements
-
+    
     public:
         BPA (int log_size, int num_blocks, int block_size) {
             this->log_size = log_size;
