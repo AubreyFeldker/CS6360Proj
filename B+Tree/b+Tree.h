@@ -1,7 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <queue>
-#include "b+Treenode.h"
+#include "b+TreeNode.h"
 
 using namespace std;
 
@@ -78,6 +78,12 @@ public:
                 std::cout << std::endl; // Move to the next level
             }
         }
+    }
+
+    // Public method to find the element with the smallest key that is at least x
+    BPlusTreeNode<KeyType, ValueType> *find(const KeyType &x) const
+    {
+        return findRecursive(root, x);
     }
 
     // Public method for key deletion
@@ -234,5 +240,33 @@ private:
         return newInternalNode;
     }
 
+    // Private method for recursive search
+    // Private method for recursive search
+    BPlusTreeNode<KeyType, ValueType> *findRecursive(BPlusTreeNode<KeyType, ValueType> *node, const KeyType &x) const
+    {
+        if (node == nullptr)
+        {
+            return nullptr; // Not found
+        }
+
+        // Find the smallest key that is at least x in the current node
+        auto it = std::lower_bound(node->keys.begin(), node->keys.end(), x);
+
+        // If the key is found in the current node, return the node
+        if (it != node->keys.end() && *it == x)
+        {
+            return node;
+        }
+
+        // If the current node is a leaf, return nullptr as no key is at least x
+        if (node->isLeaf)
+        {
+            return nullptr;
+        }
+
+        // Recursively search the appropriate child
+        int childIndex = it - node->keys.begin();
+        return findRecursive(node->children[childIndex], x);
+    }
     // Add other helper methods as needed
 };
