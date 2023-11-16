@@ -80,9 +80,11 @@ public:
         }
     }
 
-      // Public method for key deletion
-    void remove(const KeyType& key) {
-        if (root == nullptr) {
+    // Public method for key deletion
+    void remove(const KeyType &key)
+    {
+        if (root == nullptr)
+        {
             std::cout << "Tree is empty. Cannot delete key.\n";
             return;
         }
@@ -91,18 +93,19 @@ public:
         removeRecursive(root, key);
 
         // After deletion, you might want to handle cases where the root becomes empty
-        if (root->keys.empty()) {
+        if (root->keys.empty())
+        {
             // Adjust the root if necessary
             // This could happen if the last key was deleted
-            BPlusTreeNode<KeyType, ValueType>* newRoot = root->children[0];
+            BPlusTreeNode<KeyType, ValueType> *newRoot = root->children[0];
             delete root;
             root = newRoot;
-            if (root != nullptr) {
+            if (root != nullptr)
+            {
                 root->parent = nullptr;
             }
         }
     }
-
 
 private:
     // Private method to perform the recursive insertion
