@@ -80,10 +80,32 @@ public:
         }
     }
 
-    // Public method to find the element with the smallest key that is at least x
-    BPlusTreeNode<KeyType, ValueType> *find(const KeyType &x) const
+    // Function to find the smallest key greater than or equal to the given search key
+    BPlusTreeNode<KeyType, ValueType> *find(const KeyType &searchKey)
     {
-        return findRecursive(root, x);
+        if (root == nullptr)
+        {
+            cout << "Tree is empty." << endl;
+            return nullptr; // Assuming ValueType has a default constructor
+        }
+
+        BPlusTreeNode<KeyType, ValueType> *current = findLeafNode(searchKey);
+        int index = findKeyIndex(current, searchKey);
+
+        if (index == -1)
+        {
+            // Key not found in the leaf node, move to the next leaf node
+            current = current->next;
+            index = 0;
+        }
+
+        if (current != nullptr && index < current->keys.size())
+        {
+            return current;
+        }
+
+        cout << "Key not found." << endl;
+        return nullptr; // Assuming ValueType has a default constructor
     }
 
     // Public method for key deletion
@@ -240,33 +262,31 @@ private:
         return newInternalNode;
     }
 
-    // Private method for recursive search
-    // Private method for recursive search
-    BPlusTreeNode<KeyType, ValueType> *findRecursive(BPlusTreeNode<KeyType, ValueType> *node, const KeyType &x) const
+    // Helper function to find the leaf node where the key might be located
+    BPlusTreeNode<KeyType, ValueType> *findLeafNode(const KeyType &searchKey)
     {
-        if (node == nullptr)
+        BPlusTreeNode<KeyType, ValueType> *current = root;
+
+        while (current != nullptr && !current->isLeaf)
         {
-            return nullptr; // Not found
+            int index = 0;
+            while (index < current->keys.size() && searchKey >= current->keys[index])
+            {
+                index++;
+            }
+            current = current->children[index];
         }
-
-        // Find the smallest key that is at least x in the current node
-        auto it = std::lower_bound(node->keys.begin(), node->keys.end(), x);
-
-        // If the key is found in the current node, return the node
-        if (it != node->keys.end() && *it == x)
-        {
-            return node;
-        }
-
-        // If the current node is a leaf, return nullptr as no key is at least x
-        if (node->isLeaf)
-        {
-            return nullptr;
-        }
-
-        // Recursively search the appropriate child
-        int childIndex = it - node->keys.begin();
-        return findRecursive(node->children[childIndex], x);
+        return current;
     }
-    // Add other helper methods as needed
+    // Helper function to find the index of the key in a node
+    int findKeyIndex(BPlusTreeNode<KeyType, ValueType> *node, const KeyType &searchKey)
+    {
+        int index = 0;
+        while (index < node->keys.size() && searchKey > node->keys[index])
+        {
+            index++;
+        }
+
+        return index == node->keys.size() ? -1 : index;
+    }
 };
