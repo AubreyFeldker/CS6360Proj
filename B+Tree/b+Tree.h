@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <queue>
+#include <functional> // Add this include for std::function
 #include "b+TreeNode.h"
 
 using namespace std;
@@ -132,6 +133,33 @@ public:
             {
                 root->parent = nullptr;
             }
+        }
+    }
+
+    // Function to iterate over a range of elements in order (by key)
+    void iterate_range(const KeyType &start, int length, std::function<void(const KeyType &, ValueType &)> f)
+    {
+        if (root == nullptr)
+        {
+            cout << "Tree is empty." << endl;
+            return;
+        }
+
+        BPlusTreeNode<KeyType, ValueType> *current = findLeafNode(start);
+        int index = findKeyIndex(current, start);
+
+        // Iterate through the leaf nodes and apply the function to the specified range
+        while (current != nullptr && length > 0)
+        {
+            for (int i = index; i < current->keys.size() && length > 0; ++i)
+            {
+                f(current->keys[i], current->values[i]);
+                --length;
+            }
+
+            // Move to the next leaf node
+            current = current->next;
+            index = 0;
         }
     }
 
