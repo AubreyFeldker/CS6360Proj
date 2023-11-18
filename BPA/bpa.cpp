@@ -13,6 +13,16 @@ struct ElementBPA
     bool isNull = true;
     KeyType key;
     ValueType value;
+
+    bool operator<(ElementBPA<KeyType, ValueType> ele){
+        if (ele.isNull && !isNull)
+            return true;
+        if (isNull)
+            return false;
+
+
+        return key < ele.key;
+    } 
 };
 
 
@@ -65,6 +75,25 @@ public:
             }
         }
 
+        //If theres still a space left in the log, can return successfully. Case 1.
+        if(bpa_array[log_size-1].isNull)
+            return true;
+
+        //If the BPA is new (theres no elements in the header) and the log is full, then move min(log size, header size) elements to the header and sort them, then return
+        int numToMove = min(log_size, num_blocks);
+        if (header_ptr->isNull){
+            for(int i = 0; i < numToMove; i++){
+                swap(log_ptr[log_size-1-i], header_ptr[i]);
+            }
+            sort(header_ptr, header_ptr+numToMove);
+
+            return true;
+        }
+
+        //If at this point then the log is full and there are some headers (not necessarily all)
+        //TODO: Count elements in each block and check if inserting the elements in the log will overflow any of them, then handle
+
+
 
         return false;
     }
@@ -74,6 +103,8 @@ public:
     ValueType* find (KeyType element) {
         //First iterate through log and return if found
         for(int i = 0; i < log_size; i++){
+            if(bpa_array[i].isNull)
+                break;
             if (element == bpa_array[i].key)
                 return &bpa_array[i].value;
         }
@@ -81,12 +112,13 @@ public:
         int foundBlock = num_blocks-1;
         //Else iterate through the header and delve into the respective block if necessary.
         for(int i = 0; i < num_blocks; i++){
-            if (element == header_ptr[i].key){
-                return &header_ptr[i].value;
-            }
-            if (element < header_ptr[i].key){
+            // A header might be null, indicating to look through the last used header.
+            if (element < header_ptr[i].key || header_ptr[i].isNull){
                 foundBlock = i-1;
                 break;
+            }
+            if (element == header_ptr[i].key){
+                return &header_ptr[i].value;
             }
         }
 
@@ -136,10 +168,17 @@ public:
 
 int main() {
     //ElementBPA<int, int> s(1, 2);
-    BPA<int, int> tester(3, 3, 3);
+    BPA<int, int> tester(3, 4, 3);
 
     tester.printContents();
-    cout << endl << *tester.find(644) << endl;
+    tester.insert(2, 20);
+    tester.insert(3, 30);
+    tester.insert(1, 10);
+    
+    tester.insert(4, 40);
+    tester.printContents();
+
+    cout << endl << *tester.find(4) << endl;
 
     //ElementBPA<int, int> g = new ElementBPA(1, 5);
 }
