@@ -60,10 +60,20 @@ public:
                     BPlusTreeNode<KeyType, ValueType> *currentNode = nodeQueue.front();
                     nodeQueue.pop();
 
-                    // Print or process the keys of the current node
-                    for (const auto &key : currentNode->keys)
+                    // Print or process the keys and values of the current node
+                    if (currentNode->isLeaf)
                     {
-                        std::cout << key << " ";
+                        for (size_t j = 0; j < currentNode->keys.size(); ++j)
+                        {
+                            std::cout << "(" << currentNode->keys[j] << ", " << currentNode->values[j] << ") ";
+                        }
+                    }
+                    else
+                    {
+                        for (size_t j = 0; j < currentNode->keys.size(); ++j)
+                        {
+                            std::cout << "(" << currentNode->keys[j] << ") ";
+                        }
                     }
 
                     // Enqueue the children of the current node
