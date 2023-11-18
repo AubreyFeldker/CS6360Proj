@@ -173,6 +173,12 @@ public:
         }
     }
 
+    // Public method to apply a function to all elements with keys in the range [start, end)
+    void map_range(const KeyType &start, const KeyType &end, std::function<void(const KeyType &, ValueType &)> f)
+    {
+        map_range_recursive(root, start, end, f);
+    }
+
 private:
     // Private method to perform the recursive insertion
     void
@@ -326,5 +332,36 @@ private:
         }
 
         return index == node->keys.size() ? -1 : index;
+    }
+    // Private method for recursive range mapping
+    void map_range_recursive(BPlusTreeNode<KeyType, ValueType> *node, const KeyType &start, const KeyType &end, std::function<void(const KeyType &, ValueType &)> f)
+    {
+        if (!node)
+        {
+            return;
+        }
+
+        // If the node is an internal node, recursively traverse its children
+        if (!node->isLeaf)
+        {
+            // Find the child to traverse
+            auto childIt = std::upper_bound(node->keys.begin(), node->keys.end(), start);
+            int childIndex = std::distance(node->keys.begin(), childIt);
+
+            // Traverse the child
+            map_range_recursive(node->children[childIndex], start, end, f);
+        }
+        else
+        {
+            // If the node is a leaf, apply the function to keys in the specified range
+            auto keyIt = std::lower_bound(node->keys.begin(), node->keys.end(), start);
+
+            while (keyIt != node->keys.end() && *keyIt < end)
+            {
+                // Apply the function to the key and its associated value
+                f(*keyIt, node->values[std::distance(node->keys.begin(), keyIt)]);
+                ++keyIt;
+            }
+        }
     }
 };
