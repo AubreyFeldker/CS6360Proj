@@ -203,7 +203,7 @@ private:
         }
 
         BPlusTreeNode<KeyType, ValueType> *newLeaf = nullptr;
-        if (leaf->keys.size() > order)
+        if (leaf->keys.size() >= order)
         {
             newLeaf = splitLeaf(leaf);
             insertIntoParent(leaf, newLeaf->keys[0], newLeaf);
@@ -259,7 +259,7 @@ private:
             rightChild->parent = parent;
 
             // Check if the parent node needs to be split
-            if (parent->keys.size() > order)
+            if (parent->keys.size() >= order)
             {
                 BPlusTreeNode<KeyType, ValueType> *newInternalNode = splitInternal(parent);
                 insertIntoParent(parent, newInternalNode->keys[0], newInternalNode);
