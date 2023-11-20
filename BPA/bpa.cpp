@@ -141,12 +141,128 @@ public:
     }
 
     // sort function recommended std::sort(bpa_array, bpa_array+4) for example to sort only the first 4 elements quickly
-    void iterate_range (int start, int length, function<int(int)> f) {
+    void iterate_range (int start, int length, function<ValueType(KeyType)> f) {
+        // Sort the log for iteration
+        sort(log_ptr, log_ptr + log_size);
+
+        int found_block = num_blocks - 1;
+
+        // We find the first block that contains the starting range
+        for (int i = 1; i < num_blocks; i++) {
+            if (start < header_ptr[i].key || header_ptr[i].isNull) {
+                foundBlock = i-1;
+                break;
+            }
+        }
+
+        ElementBPA<KeyType, ValueType> *block_ptr = getBlock(found_block);
+
+        int log_spot = 0;
+        int block_spot = 0;
+
+        if (! sorted_blocks[found_block]) {
+            sort(block_ptr, block_ptr + block_size);
+            sorted_blocks[found_block] = true;
+        }
+
+        int iters = 0;
+        bool keep_block_iter = true;
+        ElementBPA<KeyType, ValueType> block_space;
+
+        // Do *length* iterations of the function onto the monotonically increasing elements in the BPA
+        while (iters < length) {
+            block_space = (block_spot == 0) ?  header_ptr[found_block] : block_ptr[block_spot-1]
+            // Check if the item in the log is smaller than the one in the block & the start val, then perform function if so
+            if (log_spot < log_size && ! log_ptr[log_spot].isNull && (! keep_block_iter || log_ptr[log_spot].key < block_space.key)) {
+                if (log_ptr[log_spot].key >= start) {
+                    log_ptr[log_spot].value = f(log_ptr[log_spot].key);
+                    iters++;
+                }
+                log_spot++;
+            }
+            else if (keep_block_iter) {
+                if (block_space.key >= start) {
+                    block_space.value = f(block_space.key);
+                    iters++;
+                }
+                block_spot++;
+
+                // Finished this block, must go to the next one... if there is a next one
+                if (block_spot > block_size || block_ptr[block_spot-1].isNull) {
+                    found_block++;
+                    
+                    // Final block in the BPA, can't continue iterating here!
+                    if (found_block >= num_blocks) {
+                        keep_block_iter = false;
+                        continue;
+                    }
+
+                    block_ptr = getBlock(found_block);
+                    if (! sorted_blocks[found_block]) {
+                        sort(block_ptr, block_ptr + block_size);
+                        sorted_blocks[found_block] = true;
+                    }
+                    block_spot = 0;
+                }
+            }
+            else
+                break;
+
+            
+        }
+
+        return;
 
     }
 
-    void map_range (int start, int length, function<int(int)> f) {
+    void map_range (int start, int length, function<ValueType(KeyType)> f) {
+        for (int i = 0; i < log_size; i++) {
+            if (log_ptr[i].key >= start && log_ptr[i].key < start + length)
+                log_ptr[i].value = f(log_ptr[i].key)
+        }
 
+        int found_block = num_blocks - 1;
+
+        // We find the first block that contains the starting range
+        for (int i = 1; i < num_blocks; i++) {
+            if (start < header_ptr[i].key || header_ptr[i].isNull) {
+                foundBlock = i-1;
+                break;
+            }
+        }
+
+        // Sort the block if not already sorted
+        if (! sorted_blocks[found_block]) {
+            sort(block_ptr, block_ptr + block_size);
+            sorted_blocks[found_block] = true;
+        }
+
+        ElementBPA<KeyType, ValueType> *block_ptr = getBlock(found_block);
+        ElementBPA<KeyType, ValueType> block_space = header_ptr[found_block];
+        int block_iterator = 0;
+
+        while (block_space.key < start + length) {
+            if (block_space.key >= start) {
+                block_space.value = f(block_space.key);
+            }
+
+            block_space = block_ptr[block_iterator];
+            block_iterator++;
+
+            if (block_iterator >= block_size) {
+                found_block++;
+                block_ptr = getBlock(found_block);
+                block_space = header_ptr[found_block];
+                block_iterator = 0;
+
+                if (! sorted_blocks[found_block]) {
+                    sort(block_ptr, block_ptr + block_size);
+                    sorted_blocks[found_block] = true;
+                }
+            }
+        }
+
+        return;
     }
 
     // Small helper function, returns pointer to first element in block i
