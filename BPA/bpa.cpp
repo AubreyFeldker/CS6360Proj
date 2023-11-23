@@ -1,5 +1,6 @@
 #include <iostream>
 #include <functional>
+#include <algorithm>
 #pragma GCC diagnostic ignored "-Wconversion-null"
 
 using namespace std;
@@ -288,7 +289,7 @@ public:
 
                     block_ptr = getBlock(found_block);
                     if (! sorted_blocks[found_block]) {
-                        sort(block_ptr, block_ptr + block_size);
+                        sort(blocks_ptr, block_ptrs + block_size);
                         sorted_blocks[found_block] = true;
                     }
                     block_spot = 0;
@@ -375,6 +376,8 @@ public:
     }
 };
 
+int add_five(int x) { return x + 5; };
+
 int main() {
     //ElementBPA<int, int> s(1, 2);
     BPA<int, int> tester(4, 4, 4);
@@ -393,10 +396,14 @@ int main() {
     tester.insert(95, 0);
     tester.insert(101, 0);
     tester.printContents();
-    
+
     
 
     //cout << endl << *tester.find(4) << endl;
+
+    tester.map_range(3, 2, &add_five);
+
+    tester.printContents();
 
     //ElementBPA<int, int> g = new ElementBPA(1, 5);
 }
