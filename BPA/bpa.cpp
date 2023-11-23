@@ -30,8 +30,10 @@ struct ElementBPA
 template <typename KeyType, typename ValueType>
 class BPA {
 private:
-    ElementBPA<KeyType, ValueType>* bpa_array; // Actual array containing key values.
+    ElementBPA<KeyType, ValueType>* bpa_array;  // Actual array containing key values.
+    ElementBPA<KeyType, ValueType>* temp_array; // Array used for redistributing the elements
     bool* sorted_blocks; // Bit array for checking if a particular block is already sorted
+    int* count_per_block;
 
     ElementBPA<KeyType, ValueType>* log_ptr; // Buffered inserts that propogate out to the rest of the array
     ElementBPA<KeyType, ValueType>* header_ptr; // Each space in header_ptr + i holds the minimum element for block i
@@ -56,12 +58,14 @@ public:
         else 
             bpa_array = new ElementBPA<KeyType, ValueType>[log_size + num_blocks + (num_blocks * block_size)];
 
+        temp_array = new ElementBPA<KeyType, ValueType>[log_size + num_blocks + (num_blocks * block_size)];
         log_ptr = bpa_array;
         header_ptr = log_ptr + log_size;
         blocks_ptr = header_ptr + block_size;
         total_size = log_size + num_blocks + (num_blocks * block_size);
 
         sorted_blocks = new bool[num_blocks];
+        count_per_block = new int[num_blocks]();
     }
 
     // Inserts the key value pair, returns false if theres not enough space and the BPA needs to be split
@@ -75,7 +79,7 @@ public:
                 break;
             }
         }
-
+        
         //If theres still a space left in the log, can return successfully. Case 1.
         if(bpa_array[log_size-1].isNull)
             return true;
@@ -91,9 +95,95 @@ public:
             return true;
         }
 
-        //If at this point then the log is full and there are some headers (not necessarily all)
-        //TODO: Count elements in each block and check if inserting the elements in the log will overflow any of them, then handle
+        //If at this point then the log is full and there are some headers (not necessarily all)]
+        int new_destined_per_block[block_size] = {};
+        int destination_block[log_size] = {};          //Used to remember which block each element in the log should go for later use
+        new_destined_per_block[block_size-1] = log_size;
+        //Count how many elements in log will be inserted into each block and check for overflow
+        for (int i = 0; i < log_size; i++){
+            destination_block[i] = block_size-1;
+            //Iterate through the header until target block found
+            for(int j = 0; j < num_blocks; j++){
+                // A header might be null, indicating to look through the last used header.
+                if (log_ptr[i].key < header_ptr[j].key || header_ptr[j].isNull){
+                    //cout << "Element " << i << " belongs in block " << j-1 << endl;
+                    new_destined_per_block[j-1] += 1;
+                    new_destined_per_block[block_size-1] -= 1;
+                    destination_block[i] = j-1;
+                    break;
+                }
+            }
+        }
 
+        //cout << "count " << new_destined_per_block[block_size-1] << endl;
+
+        //Check if theres enough space in the blocks for all the target insertions
+        bool enough_space = true;
+        for (int i = 0; i < num_blocks; i++){
+            if (count_per_block[i] + new_destined_per_block[i] >= block_size){
+                enough_space = false;
+                break;
+            }
+        }
+
+        if (enough_space){
+            for (int i = 0; i < log_size; i++){
+                //If the subject block header has the same key, replace the value and clear the corresponding element in log
+                if (!header_ptr[destination_block[i]].isNull && header_ptr[destination_block[i]].key == log_ptr[i].key){
+                    header_ptr[destination_block[i]].value = log_ptr[i].value;
+                    log_ptr[i].isNull = true;
+                    continue;
+                }
+                //Otherwise iterate through destination blocks contents, replacing an element with the corresponding key
+                // or copying into the first null element. Unset the sorted bit when appending and not replacing.
+                ElementBPA<KeyType, ValueType>* subject_block = getBlock(destination_block[i]);
+                for (int j = 0; j < block_size; j++){
+                    if (subject_block[j].isNull){
+                        subject_block[j].isNull = false;
+                        subject_block[j].key = log_ptr[i].key;
+                        subject_block[j].value = log_ptr[i].value;
+                        log_ptr[i].isNull = true;
+                        count_per_block[destination_block[i]] += 1;
+                        sorted_blocks[destination_block[i]] = false;
+                        break;
+                    } else if (subject_block[j].key == log_ptr[i].key){
+                        subject_block[j].value = log_ptr[i].value;
+                        log_ptr[i].isNull = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+
+        //If not enough space in one or more blocks, it is necessary to completely redistribute the BPA and select new headers.
+        //TODO: Implement hashmap to discard elements with duplicate keys
+        if (!enough_space){
+            int count = 0;
+            for(int i = 0; i < total_size; i++){
+                if (!bpa_array[i].isNull)
+                    count++;
+
+                temp_array[i] = bpa_array[i];
+                bpa_array[i].isNull = true;
+            }
+
+            sort(temp_array, temp_array + total_size);
+            int new_count_per_block = count / block_size;
+            int remains = count % block_size;
+
+            //Copy the modified array back into the correct positions
+            for(int i = 0; i < new_count_per_block * num_blocks; i += new_count_per_block){
+                int blocknum = i / new_count_per_block;
+                header_ptr[blocknum] = temp_array[i];   //Set header of this new copied over block
+
+                //Then copy over the actual elements that belong in the new block
+                ElementBPA<KeyType, ValueType>* newBlockStart = getBlock(blocknum);
+                for(int j = 1; j < new_count_per_block; j++){
+                    newBlockStart[j-1] = temp_array[i+j];
+                }
+            }
+        }
 
 
         return false;
@@ -151,7 +241,7 @@ public:
         // We find the first block that contains the starting range
         for (int i = 1; i < num_blocks; i++) {
             if (start < header_ptr[i].key || header_ptr[i].isNull) {
-                foundBlock = i-1;
+                found_block = i-1;
                 break;
             }
         }
@@ -172,7 +262,7 @@ public:
 
         // Do *length* iterations of the function onto the monotonically increasing elements in the BPA
         while (iters < length) {
-            block_space = (block_spot == 0) ?  header_ptr[found_block] : block_ptr[block_spot-1]
+            block_space = (block_spot == 0) ?  header_ptr[found_block] : block_ptr[block_spot-1];
             // Check if the item in the log is smaller than the one in the block & the start val, then perform function if so
             if (log_spot < log_size && ! log_ptr[log_spot].isNull && (! keep_block_iter || log_ptr[log_spot].key < block_space.key)) {
                 if (log_ptr[log_spot].key >= start) {
@@ -180,8 +270,7 @@ public:
                     iters++;
                 }
                 log_spot++;
-            }
-            else if (keep_block_iter) {
+            } else if (keep_block_iter) {
                 if (block_space.key >= start) {
                     block_space.value = f(block_space.key);
                     iters++;
@@ -268,14 +357,18 @@ public:
 
     // Small helper function, returns pointer to first element in block i
     ElementBPA<KeyType, ValueType>* getBlock (int i){
-        return blocks_ptr + i * block_size;
+        return blocks_ptr + i * (block_size);
     }
 
     // Dubug helper function, prints contents of the BPA
     void printContents (){
         cout << "{";
         for(int i = 0; i < total_size; i++){
-            cout << "(" << bpa_array[i].key << ", " << bpa_array[i].value << ")";
+            if (!bpa_array[i].isNull)
+                cout << "(" << bpa_array[i].key << ", " << bpa_array[i].value << ")";
+            else
+                cout << "(" << "Null" << ")";
+
             if(i+1 < total_size)
                 cout << ", ";
         }
@@ -287,17 +380,26 @@ int add_five(int x) { return x + 5; };
 
 int main() {
     //ElementBPA<int, int> s(1, 2);
-    BPA<int, int> tester(3, 4, 3);
+    BPA<int, int> tester(4, 4, 4);
+    tester.insert(7, 0);
+    tester.insert(19, 0);
+    tester.insert(15, 0);
+    tester.insert(89, 0);
 
+    tester.insert(13, 0);
+    tester.insert(8, 0);
+    tester.insert(17, 0);
+    tester.insert(50, 0);
+
+    tester.insert(90, 0);
+    tester.insert(93, 0);
+    tester.insert(95, 0);
+    tester.insert(101, 0);
     tester.printContents();
-    tester.insert(2, 20);
-    tester.insert(3, 30);
-    tester.insert(1, 10);
-    
-    tester.insert(4, 40);
+
     
 
-    cout << endl << *tester.find(4) << endl;
+    //cout << endl << *tester.find(4) << endl;
 
     tester.map_range(3, 2, &add_five);
 
