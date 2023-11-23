@@ -1,5 +1,6 @@
 #include <iostream>
 #include <functional>
+#include <algorithm>
 #pragma GCC diagnostic ignored "-Wconversion-null"
 
 using namespace std;
@@ -199,7 +200,7 @@ public:
 
                     block_ptr = getBlock(found_block);
                     if (! sorted_blocks[found_block]) {
-                        sort(block_ptr, block_ptr + block_size);
+                        sort(blocks_ptr, block_ptrs + block_size);
                         sorted_blocks[found_block] = true;
                     }
                     block_spot = 0;
@@ -218,7 +219,7 @@ public:
     void map_range (int start, int length, function<ValueType(KeyType)> f) {
         for (int i = 0; i < log_size; i++) {
             if (log_ptr[i].key >= start && log_ptr[i].key < start + length)
-                log_ptr[i].value = f(log_ptr[i].key)
+                log_ptr[i].value = f(log_ptr[i].key);
         }
 
         int found_block = num_blocks - 1;
@@ -226,14 +227,14 @@ public:
         // We find the first block that contains the starting range
         for (int i = 1; i < num_blocks; i++) {
             if (start < header_ptr[i].key || header_ptr[i].isNull) {
-                foundBlock = i-1;
+                found_block = i-1;
                 break;
             }
         }
 
         // Sort the block if not already sorted
         if (! sorted_blocks[found_block]) {
-            sort(block_ptr, block_ptr + block_size);
+            sort(blocks_ptr, blocks_ptr + block_size);
             sorted_blocks[found_block] = true;
         }
 
@@ -282,6 +283,8 @@ public:
     }
 };
 
+int add_five(int x) { return x + 5; };
+
 int main() {
     //ElementBPA<int, int> s(1, 2);
     BPA<int, int> tester(3, 4, 3);
@@ -292,9 +295,13 @@ int main() {
     tester.insert(1, 10);
     
     tester.insert(4, 40);
-    tester.printContents();
+    
 
     cout << endl << *tester.find(4) << endl;
+
+    tester.map_range(3, 2, &add_five);
+
+    tester.printContents();
 
     //ElementBPA<int, int> g = new ElementBPA(1, 5);
 }
