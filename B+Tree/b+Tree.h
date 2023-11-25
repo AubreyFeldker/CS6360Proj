@@ -3,6 +3,7 @@
 #include <queue>
 #include <functional> // Add this include for std::function
 #include "b+TreeNode.h"
+#include "../BPA/bpa.cpp"
 
 using namespace std;
 
@@ -14,9 +15,13 @@ private:
     BPlusTreeNode<KeyType, ValueType> *root;
     int order; // Order of the B+ tree
 
+    int bpa_log_size;
+    int bpa_num_blocks;
+    int bpa_block_size;
+
 public:
     // Constructor
-    BPlusTree(int order) : root(nullptr), order(order) {}
+    BPlusTree(int order, int log_size, int num_blocks, int block_size) : root(nullptr), order(order), bpa_log_size(log_size), bpa_num_blocks(num_blocks), bpa_block_size(block_size) {}
 
     // Destructor
     ~BPlusTree()

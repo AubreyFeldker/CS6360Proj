@@ -43,7 +43,7 @@ public:
     int log_size; // Maximum number of buffered inserts
     int num_blocks; // Number of blocks in the data structure
     int block_size; // Maximum number of elements per block
-    int total_size; // Total size of BPA
+    int total_size; // Total number of elements that can be held in the array (minus the log)
     
     BPA* prev = nullptr;  //Pointer to the child BPA to the left
     BPA* next = nullptr;  //Pointer to the child BPA to the right
@@ -62,7 +62,7 @@ public:
         log_ptr = bpa_array;
         header_ptr = log_ptr + log_size;
         blocks_ptr = header_ptr + block_size;
-        total_size = log_size + num_blocks + (num_blocks * block_size);
+        total_size = num_blocks + (num_blocks * block_size);
 
         sorted_blocks = new bool[num_blocks];
         count_per_block = new int[num_blocks]();
@@ -232,7 +232,7 @@ public:
     }
 
     // sort function recommended std::sort(bpa_array, bpa_array+4) for example to sort only the first 4 elements quickly
-    void iterate_range (int start, int length, function<ValueType(KeyType)> f) {
+    int iterate_range (int start, int length, function<ValueType(KeyType)> f) {
         // Sort the log for iteration
         sort(log_ptr, log_ptr + log_size);
 
@@ -297,15 +297,13 @@ public:
             }
             else
                 break;
-
-            
         }
 
-        return;
+        return iters;
 
     }
 
-    void map_range (int start, int length, function<ValueType(KeyType)> f) {
+    int map_range (int start, int length, function<ValueType(KeyType)> f) {
         for (int i = 0; i < log_size; i++) {
             if (log_ptr[i].key >= start && log_ptr[i].key < start + length)
                 log_ptr[i].value = f(log_ptr[i].key);
@@ -330,10 +328,12 @@ public:
         ElementBPA<KeyType, ValueType> *block_ptr = getBlock(found_block);
         ElementBPA<KeyType, ValueType> block_space = header_ptr[found_block];
         int block_iterator = 0;
+        int iters = 0;
 
         while (block_space.key < start + length) {
             if (block_space.key >= start) {
                 block_space.value = f(block_space.key);
+                iters++;
             }
 
             block_space = block_ptr[block_iterator];
@@ -352,7 +352,7 @@ public:
             }
         }
 
-        return;
+        return iters;
     }
 
     // Small helper function, returns pointer to first element in block i
