@@ -1,7 +1,6 @@
 #include <iostream>
 #include <functional>
 #include <algorithm>
-#pragma GCC diagnostic ignored "-Wconversion-null"
 
 using namespace std;
 
@@ -35,15 +34,17 @@ private:
     bool* sorted_blocks; // Bit array for checking if a particular block is already sorted
     int* count_per_block;
 
-    ElementBPA<KeyType, ValueType>* log_ptr; // Buffered inserts that propogate out to the rest of the array
-    ElementBPA<KeyType, ValueType>* header_ptr; // Each space in header_ptr + i holds the minimum element for block i
-    ElementBPA<KeyType, ValueType>* blocks_ptr; // Rest of the elemetns in chunks of block_size elements
+    
 
 public:
     int log_size; // Maximum number of buffered inserts
     int num_blocks; // Number of blocks in the data structure
     int block_size; // Maximum number of elements per block
     int total_size; // Total number of elements that can be held in the array (minus the log)
+
+    ElementBPA<KeyType, ValueType>* log_ptr; // Buffered inserts that propogate out to the rest of the array
+    ElementBPA<KeyType, ValueType>* header_ptr; // Each space in header_ptr + i holds the minimum element for block i
+    ElementBPA<KeyType, ValueType>* blocks_ptr; // Rest of the elemetns in chunks of block_size elements
     
     BPA* prev = nullptr;  //Pointer to the child BPA to the left
     BPA* next = nullptr;  //Pointer to the child BPA to the right
@@ -66,6 +67,11 @@ public:
 
         sorted_blocks = new bool[num_blocks];
         count_per_block = new int[num_blocks]();
+    }
+
+    //Helper function to facilitate BPA splitting
+    bool insert (ElementBPA<KeyType, ValueType> ele) {
+        return insert(ele.key, ele.value);
     }
 
     // Inserts the key value pair, returns false if theres not enough space and the BPA needs to be split
@@ -289,7 +295,7 @@ public:
 
                     block_ptr = getBlock(found_block);
                     if (! sorted_blocks[found_block]) {
-                        sort(blocks_ptr, block_ptrs + block_size);
+                        sort(blocks_ptr, blocks_ptr + block_size);
                         sorted_blocks[found_block] = true;
                     }
                     block_spot = 0;
