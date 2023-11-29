@@ -1,6 +1,8 @@
 #include <iostream>
 #include <vector>
-#include <functional> // Add this include for std::function
+#include <functional>
+#include <mutex>
+#include <shared_mutex> //Thread safety capabilities
 #include "../BPA/bpa.cpp"
 
 using namespace std;
@@ -8,9 +10,8 @@ using namespace std;
 template <typename KeyType, typename ValueType>
 class BPTreeNode
 {
+    mutable shared_mutex rw_lock; //R/W mutex for handling thread safety
     BPTreeNode<KeyType, ValueType>* parent = nullptr;
-
-    // Insert r/w locks here
 };
 
 template <typename KeyType, typename ValueType>
@@ -54,11 +55,15 @@ private:
     // Helper method to traverse tree until you reach a leaf node
     BPTreeNode_Leaf<KeyType, ValueType>* traverse(KeyType key) {
         BPTreeNode<KeyType, ValueType>* curr_node = root;
+        curr_node->rw_lock.lock_shared();
 
         while (typeid(curr_node).name() != "BPTreeNode_Leaf") {
             curr_node = curr_node->children[curr_node->children.size() - 1];
             for (int i = 0; i < curr_node->keys.size(); i++) {
                 if (key < curr_node->keys[i]) {
+                    curr_node->rw_lock.lock_shared(); // Hand-over-hand locking
+                    curr_node->parent->rw_lock.unlock_shared();
+
                     curr_node = curr_node->children[i];
                     break;
                 }
@@ -188,6 +193,7 @@ public:
     ValueType* find(KeyType key) {
         BPTreeNode_Leaf<KeyType, ValueType>* leaf = traverse(key);
 
+        leaf->rw_lock.unlock_shared();
         return leaf->bpa.find(key);
     }
 
@@ -195,10 +201,32 @@ public:
         int num_to_process = length;
         BPTreeNode_Leaf<KeyType, ValueType>* leaf = traverse(start);
 
+        bool need_write = true; //Check if we need to take a write lock here
+        bool last_need_write;
+
         while (num_to_process > 0) {
+            last_need_write = need_write;
+            need_write = true;
+            if (leaf->bpa.sorted_log) {
+                for(int i = 1; i < bpa_num_blocks; i++) {
+                    if (leaf->bpa.header_ptr[i] < start && ! leaf->bpa.sorted_blocks[i])
+                        break;
+                }
+
+                need_write = false;
+            }
+
+            (need_write) ? leaf->rw_lock.lock() : leaf->rw_lock.lock_shared();
+            if (num_to_process != length)
+                (last_need_write) ? leaf->prev->rw_lock.unlock() : leaf->prev->rw_lock.unlock_shared();
+
             num_to_process -= leaf->bpa.iterate_range(start, num_to_process, f);
-            left = leaf->next;
+
+            if (leaf-> next == nullptr)
+                break;
+            leaf = leaf->next;
         }
+        (need_write) ? leaf->rw_lock.unlock() : leaf->rw_lock.unlock_shared();
     }
 
     void map_range (int start, int length, function<ValueType(KeyType)> f) {

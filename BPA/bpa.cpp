@@ -31,7 +31,6 @@ class BPA {
 private:
     ElementBPA<KeyType, ValueType>* bpa_array;  // Actual array containing key values.
     ElementBPA<KeyType, ValueType>* temp_array; // Array used for redistributing the elements
-    bool* sorted_blocks; // Bit array for checking if a particular block is already sorted
     int* count_per_block;
 
     
@@ -45,6 +44,9 @@ public:
     ElementBPA<KeyType, ValueType>* log_ptr; // Buffered inserts that propogate out to the rest of the array
     ElementBPA<KeyType, ValueType>* header_ptr; // Each space in header_ptr + i holds the minimum element for block i
     ElementBPA<KeyType, ValueType>* blocks_ptr; // Rest of the elemetns in chunks of block_size elements
+
+    bool* sorted_blocks; // Bit array for checking if a particular block is already sorted
+    bool sorted_log = false;
     
     BPA* prev = nullptr;  //Pointer to the child BPA to the left
     BPA* next = nullptr;  //Pointer to the child BPA to the right
@@ -87,8 +89,10 @@ public:
         }
         
         //If theres still a space left in the log, can return successfully. Case 1.
-        if(bpa_array[log_size-1].isNull)
+        if(bpa_array[log_size-1].isNull) {
+            sorted_log = false;
             return true;
+        }
 
         //If the BPA is new (theres no elements in the header) and the log is full, then move min(log size, header size) elements to the header and sort them, then return
         int numToMove = min(log_size, num_blocks);
@@ -97,7 +101,7 @@ public:
                 swap(log_ptr[log_size-1-i], header_ptr[i]);
             }
             sort(header_ptr, header_ptr+numToMove);
-
+            sorted_log = true;
             return true;
         }
 
@@ -239,8 +243,11 @@ public:
 
     // sort function recommended std::sort(bpa_array, bpa_array+4) for example to sort only the first 4 elements quickly
     int iterate_range (int start, int length, function<ValueType(KeyType)> f) {
-        // Sort the log for iteration
-        sort(log_ptr, log_ptr + log_size);
+        if (! sorted_log) {
+            // Sort the log for iteration
+            sort(log_ptr, log_ptr + log_size);
+            sorted_log = true;
+        }
 
         int found_block = num_blocks - 1;
 
