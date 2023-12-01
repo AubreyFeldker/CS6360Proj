@@ -167,11 +167,15 @@ public:
         //Redistributing the values from the original BPA into the two in a way such that
         for(int i = 0; i < bpa_elts.size() / 2; i++) {
             leaf_one->bpa.insert(bpa_elts[(i % bpa_num_blocks) * bpa_num_blocks + (i / bpa_num_blocks)]);
+            leaf_one->num_elts++;
             leaf_two->bpa.insert(bpa_elts[(i % bpa_num_blocks) * bpa_num_blocks + (i / bpa_num_blocks) + bpa_elts.size() / 2]);
+            leaf_two->num_elts++;
         }
 
-        if (bpa_elts.size() % 2 == 1)
+        if (bpa_elts.size() % 2 == 1) {
             leaf_two->bpa.insert(bpa_elts[bpa_elts.size() - 1]);
+            leaf_two->num_elts++;
+        }
 
         delete leaf;
         // Retraverse tree to get new key for insertion
