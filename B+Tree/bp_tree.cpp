@@ -241,8 +241,10 @@ public:
     ValueType* find(KeyType key) {
         BPTreeNode_Leaf<KeyType, ValueType>* leaf = traverse(key);
 
+        leaf->rw_lock.lock_shared();
+        ValueType* val = leaf->bpa.find(key);
         leaf->rw_lock.unlock_shared();
-        return leaf->bpa.find(key);
+        return val;
     }
 
     void iterate_range (int start, int length, function<ValueType(KeyType)> f) {
