@@ -20,15 +20,10 @@ template <typename KeyType, typename ValueType>
 class BPTreeNode_Internal: public BPTreeNode<KeyType, ValueType>
 {
 public:
-    int order;
-
     vector<BPTreeNode<KeyType, ValueType>*> children;
     BPTreeNode_Internal<KeyType, ValueType>* parent = nullptr;
     
     vector<KeyType> keys;
-
-    //Coinstructor
-    BPTreeNode_Internal(int order) : order(order) {}
 
     virtual ~BPTreeNode_Internal() = default;
 };
@@ -131,7 +126,7 @@ public:
 
         // Edge case where leaf is also the root, create a new internal node as the root
         if (leaf->parent == nullptr) {
-            BPTreeNode_Internal<KeyType, ValueType>* new_node = new BPTreeNode_Internal<KeyType, ValueType>(order);
+            BPTreeNode_Internal<KeyType, ValueType>* new_node = new BPTreeNode_Internal<KeyType, ValueType>();
             new_node->rw_lock.lock();
             root = new_node;
 
@@ -188,6 +183,9 @@ public:
             }
         }
 
+        leaf_one->rw_lock.lock();
+        leaf_two->rw_lock.lock();
+
         //Redistributing the values from the original BPA into the two in a way such that
         for(int i = 0; i < bpa_elts.size() / 2; i++) {
             leaf_one->bpa.insert(bpa_elts[(i % bpa_num_blocks) * bpa_num_blocks + (i / bpa_num_blocks)]);
@@ -201,14 +199,13 @@ public:
             leaf_two->num_elts++;
         }
 
-        delete leaf;
-        // Retraverse tree to get new key for insertion
-        leaf = traverse(key);    
+        leaf = (key >= bpa_elts[bpa_elts.size() / 2].key) ? leaf_two : leaf_one;
 
-        leaf->rw_lock.lock();
         leaf->bpa.insert(key, value); 
         leaf->num_elts++;
-        leaf->rw_lock.unlock();
+
+        leaf_one->rw_lock.unlock();
+        leaf_two->rw_lock.unlock();
     }
 
     void split_internal_node(BPTreeNode_Internal<KeyType, ValueType>* node, bool first_split = false) {
@@ -217,7 +214,7 @@ public:
             pess_descent(node);
         int splitIndex = node->keys.size() / 2;
 
-        BPTreeNode_Internal<KeyType, ValueType> *new_node = new BPTreeNode_Internal<KeyType, ValueType>(order);
+        BPTreeNode_Internal<KeyType, ValueType> *new_node = new BPTreeNode_Internal<KeyType, ValueType>();
         new_node->rw_lock.lock();
 
         // Root node, need to create a new root

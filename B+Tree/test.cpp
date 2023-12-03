@@ -19,12 +19,12 @@ int main()
     // Create BP tree.
 
 
-    BPTree<int, std::string> bPTree(128, 64, 64, 32);
+    BPTree<int, int> bPTree(16, 16, 16, 32);
 
     // Populate initial data set.
     for (int i = 0; i < 10000; i++)
     {
-        bPTree.insert(distr(gen), "value");
+        bPTree.insert(distr(gen), i);
     }
 
     // Insert another 10M entries.
@@ -32,7 +32,7 @@ int main()
     auto start = high_resolution_clock::now();
     for (int i = 0; i < 10000000; i++)
     {
-        bPTree.insert(distr(gen), "value");
+        bPTree.insert(distr(gen), i);
     }
     auto stop = high_resolution_clock::now();
     auto duration = duration_cast<microseconds>(stop-start);
@@ -45,7 +45,7 @@ int main()
     // Populate initial data set.
     for (int i = 0; i < 10000000; i++)
     {
-        bPTree.insert(distr(gen), "value");
+        bPTree.insert(distr(gen), i);
     }
 
     // Insert another 10M entries.
@@ -53,7 +53,7 @@ int main()
     start = high_resolution_clock::now();
     for (int i = 0; i < 10000000; i++)
     {
-        bPTree.insert(distr(gen), "value");
+        bPTree.insert(distr(gen), i);
     }
     stop = high_resolution_clock::now();
     duration = duration_cast<microseconds>(stop-start);
@@ -116,7 +116,7 @@ int main()
     start = high_resolution_clock::now();
     for (int i = 0; i < 10000000; i++)
     {
-        bPTree.insert(i * i * i, "value");
+        bPTree.insert(i * i * i, i);
     }
     stop = high_resolution_clock::now();
     duration = duration_cast<microseconds>(stop-start);
