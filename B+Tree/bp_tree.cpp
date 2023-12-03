@@ -62,7 +62,7 @@ private:
         if (dynamic_cast<BPTreeNode_Leaf<KeyType, ValueType>*>(root) != nullptr) //check if the root is a leaf node already
             return dynamic_cast<BPTreeNode_Leaf<KeyType, ValueType>*>(root);
         
-        BPTreeNode_Internal<KeyType, ValueType>* curr_node;
+        BPTreeNode_Internal<KeyType, ValueType>* curr_node = dynamic_cast<BPTreeNode_Internal<KeyType, ValueType>*>(root) ;
         BPTreeNode<KeyType, ValueType>* probe_node = root;
         curr_node->rw_lock.lock_shared();
 
@@ -73,13 +73,14 @@ private:
                 if (key < curr_node->keys[i]) {
                     probe_node = curr_node->children[i];
                     probe_node->rw_lock.lock_shared(); // Hand-over-hand locking
-                    curr_node->parent->rw_lock.unlock_shared();
+                    curr_node->rw_lock.unlock_shared();
 
                     break;
                 }
             }
         }
 
+        probe_node->rw_lock.unlock_shared();
         return dynamic_cast<BPTreeNode_Leaf<KeyType, ValueType>*>(probe_node);
     }
 
@@ -99,8 +100,8 @@ public:
     void insert(KeyType key, ValueType value) {
         BPTreeNode_Leaf<KeyType, ValueType>* leaf = traverse(key);
 
-        if (leaf->parent !=nullptr)
-            leaf->parent->rw_lock.lock_shared();
+        //if (leaf->parent !=nullptr)
+        //    leaf->parent->rw_lock.lock_shared();
         leaf->rw_lock.lock(); //Write lock
 
         //Can insert into the BPA without issues
@@ -144,6 +145,8 @@ public:
             new_node->keys.push_back(bpa_elts[bpa_elts.size() / 2].key);
 
             new_node->rw_lock.unlock();
+            leaf_one->rw_lock.unlock();
+            leaf_two->rw_lock.unlock();
         }
         // Normal case, no need to create new root node
         else {

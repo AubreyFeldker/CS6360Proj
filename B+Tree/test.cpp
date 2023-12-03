@@ -19,7 +19,7 @@ int main()
     // Create BP tree.
 
 
-    BPTree<int, int> bPTree(16, 16, 16, 32);
+    BPTree<int, int> bPTree(16, 3, 3, 3);
 
     // Populate initial data set.
     for (int i = 0; i < 10000; i++)
