@@ -75,7 +75,7 @@ private:
 
     // Helper method for gaining all locks down to the internal node being split
     void pess_descent(BPTreeNode_Internal<KeyType, ValueType>* node) {
-        if (node->parent != nullptr)
+        if (node->parent != nullptr && node->children.size() == order - 1) //Only have to take this node's parent's lock if a split is going to happen
             pess_descent(node->parent);
         node->rw_lock.lock();
     }
@@ -96,6 +96,7 @@ public:
         if (leaf->num_elts < leaf->bpa.total_size) {
             leaf->bpa.insert(key, value);
             leaf->num_elts++;
+            leaf->parent->rw_lock.unlock_shared();
             leaf->rw_lock.unlock(); //Write lock
             return;
         }
