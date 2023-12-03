@@ -10,27 +10,35 @@ using namespace std;
 template <typename KeyType, typename ValueType>
 class BPTreeNode
 {
+public:
     mutable shared_mutex rw_lock; //R/W mutex for handling thread safety
-    BPTreeNode<KeyType, ValueType>* parent = nullptr;
+
+    virtual ~BPTreeNode() = default;
 };
 
 template <typename KeyType, typename ValueType>
 class BPTreeNode_Internal: public BPTreeNode<KeyType, ValueType>
 {
+public:
     int order;
 
     vector<BPTreeNode<KeyType, ValueType>*> children;
+    BPTreeNode_Internal<KeyType, ValueType>* parent = nullptr;
     
     vector<KeyType> keys;
 
     //Coinstructor
     BPTreeNode_Internal(int order) : order(order) {}
+
+    virtual ~BPTreeNode_Internal() = default;
 };
 
 template <typename KeyType, typename ValueType>
 class BPTreeNode_Leaf: public BPTreeNode<KeyType, ValueType>
 {
+public:
     BPA<KeyType, ValueType> bpa;
+    BPTreeNode_Internal<KeyType, ValueType>* parent = nullptr;
 
     BPTreeNode_Leaf<KeyType, ValueType>* prev = nullptr; //Previous leaf node
     BPTreeNode_Leaf<KeyType, ValueType>* next = nullptr; //Next leaf node
@@ -39,6 +47,8 @@ class BPTreeNode_Leaf: public BPTreeNode<KeyType, ValueType>
 
     //Constructor
     BPTreeNode_Leaf(int log_size, int num_blocks, int block_size) : bpa(log_size, num_blocks, block_size) {}
+
+    virtual ~BPTreeNode_Leaf() = default;
 };
 
 
@@ -54,23 +64,28 @@ private:
 
     // Helper method to traverse tree until you reach a leaf node
     BPTreeNode_Leaf<KeyType, ValueType>* traverse(KeyType key) {
-        BPTreeNode<KeyType, ValueType>* curr_node = root;
+        if (dynamic_cast<BPTreeNode_Leaf<KeyType, ValueType>*>(root) != nullptr) //check if the root is a leaf node already
+            return dynamic_cast<BPTreeNode_Leaf<KeyType, ValueType>*>(root);
+        
+        BPTreeNode_Internal<KeyType, ValueType>* curr_node;
+        BPTreeNode<KeyType, ValueType>* probe_node = root;
         curr_node->rw_lock.lock_shared();
 
-        while (typeid(curr_node).name() != "BPTreeNode_Leaf") {
-            curr_node = curr_node->children[curr_node->children.size() - 1];
+        while (dynamic_cast<BPTreeNode_Leaf<KeyType, ValueType>*>(probe_node) == nullptr) {
+            curr_node = dynamic_cast<BPTreeNode_Internal<KeyType, ValueType>*>(probe_node);
+            probe_node = curr_node->children[curr_node->children.size() - 1];
             for (int i = 0; i < curr_node->keys.size(); i++) {
                 if (key < curr_node->keys[i]) {
-                    curr_node->rw_lock.lock_shared(); // Hand-over-hand locking
+                    probe_node = curr_node->children[i];
+                    probe_node->rw_lock.lock_shared(); // Hand-over-hand locking
                     curr_node->parent->rw_lock.unlock_shared();
 
-                    curr_node = curr_node->children[i];
                     break;
                 }
             }
         }
 
-        return curr_node;
+        return dynamic_cast<BPTreeNode_Leaf<KeyType, ValueType>*>(probe_node);
     }
 
     // Helper method for gaining all locks down to the internal node being split
@@ -89,25 +104,27 @@ public:
     void insert(KeyType key, ValueType value) {
         BPTreeNode_Leaf<KeyType, ValueType>* leaf = traverse(key);
 
-        leaf->parent->rw_lock.lock_shared();
+        if (leaf->parent !=nullptr)
+            leaf->parent->rw_lock.lock_shared();
         leaf->rw_lock.lock(); //Write lock
 
         //Can insert into the BPA without issues
         if (leaf->num_elts < leaf->bpa.total_size) {
             leaf->bpa.insert(key, value);
             leaf->num_elts++;
-            leaf->parent->rw_lock.unlock_shared();
+            if (leaf->parent !=nullptr)
+                leaf->parent->rw_lock.unlock_shared();
             leaf->rw_lock.unlock(); //Write lock
             return;
         }
 
         // BPA is full, so must split it
         
-        vector<ElementBPA<KeyType, ValueType> *> bpa_elts;
+        vector<ElementBPA<KeyType, ValueType>> bpa_elts;
 
         for (int i = 0; i < leaf->num_elts; i++)
-            bpa_elts.push_back(&(leaf->bpa.header_ptr[i]));
-        sort(bpa_elts.front(), bpa_elts.back());
+            bpa_elts.push_back(leaf->bpa.header_ptr[i]);
+        sort(bpa_elts.begin(), bpa_elts.end(), greater<ElementBPA<KeyType, ValueType>>());
 
         BPTreeNode_Leaf<KeyType, ValueType>* leaf_one = new BPTreeNode_Leaf<KeyType, ValueType>(bpa_log_size, bpa_num_blocks, bpa_block_size);
         BPTreeNode_Leaf<KeyType, ValueType>* leaf_two = new BPTreeNode_Leaf<KeyType, ValueType>(bpa_log_size, bpa_num_blocks, bpa_block_size);
@@ -122,16 +139,16 @@ public:
             leaf_two->rw_lock.lock();
 
             leaf_one->next = leaf_two;
-            leaf_one->parent = root;
+            leaf_one->parent = new_node;
             leaf_two->prev = leaf_one;
-            leaf_two->parent = root;
+            leaf_two->parent = new_node;
 
-            root->children.push_back(leaf_one);
-            root->children.push_back(leaf_two);
+            new_node->children.push_back(leaf_one);
+            new_node->children.push_back(leaf_two);
 
-            root->keys.push_back(bpa_elts[bpa_elts.size() / 2].key);
+            new_node->keys.push_back(bpa_elts[bpa_elts.size() / 2].key);
 
-            root->rw_lock.unlock();
+            new_node->rw_lock.unlock();
         }
         // Normal case, no need to create new root node
         else {
@@ -147,13 +164,19 @@ public:
             leaf_one->next = leaf->next;
 
             // Get the index at which the original leaf was at
-            auto it = find(leaf->parent->children.begin(), leaf->parent->children.end(), leaf);
+            int split;
+            for (split = 0; split < leaf->parent->children.size(); split++) {
+                if (leaf->parent->children[split] == leaf) {
+                    leaf->parent->children.erase(leaf->parent->children.begin() + split);
+                    leaf->parent->children.insert(leaf->parent->children.begin() + split, leaf_one);
+                    leaf->parent->children.insert(leaf->parent->children.begin() + split + 1, leaf_two);
+                    break;
+                }
 
-            leaf->parent->children.assign(it, leaf_one);
-            leaf->parent->children.insert(it+1, leaf_two);
+            }
 
             //Insert the first key in the righht leaf as the new divider key
-            leaf->parent->keys.insert(leaf->parent->keys.begin() + (it - leaf->parent->children.begin()), leaf_two->bpa.header_ptr[0].key);
+            leaf->parent->keys.insert(leaf->parent->keys.begin() + split, leaf_two->bpa.header_ptr[0].key);
 
             leaf->rw_lock.unlock();
             leaf_one->rw_lock.unlock();
@@ -191,7 +214,7 @@ public:
     void split_internal_node(BPTreeNode_Internal<KeyType, ValueType>* node, bool first_split = false) {
 
         if (first_split)
-            pess_traverse(node);
+            pess_descent(node);
         int splitIndex = node->keys.size() / 2;
 
         BPTreeNode_Internal<KeyType, ValueType> *new_node = new BPTreeNode_Internal<KeyType, ValueType>(order);
@@ -199,27 +222,30 @@ public:
 
         // Root node, need to create a new root
         if(node->parent == nullptr) {
-            root = new BPTreeNode_Internal<KeyType, ValueType>(order);
+            root = new_node;
 
-            node->parent = root;
-            new_node->parent = root;
+            node->parent = new_node;
+            new_node->parent = new_node;
 
-            root->children.push_back(node);
-            root->children.push_back(new_node);
+            new_node->children.push_back(node);
+            new_node->children.push_back(new_node);
 
-            root->keys.push_back(node->keys[splitIndex]);
+            new_node->keys.push_back(node->keys[splitIndex]);
         }
         else {
             // Get the index at which the original leaf was at
-            auto it = find(node->parent->children.begin(), node->parent->children.end(), node);
+            int split;
+            for (split = 0; split < node->parent->children.size(); split++) {
+                if (node->parent->children[split] == node) {
+                    node->parent->children.insert(node->parent->children.begin() + split + 1, new_node);
+                    break;
+                }
 
-            node->parent->children.assign(it, node);
-            node->parent->children.insert(it+1, new_node);
-
+            }
             new_node->parent = node->parent;
 
             //Insert the first key in the righht leaf as the new divider key
-            node->parent->keys.insert(node->parent->keys.begin() + (it - node->parent->children.begin()), node->keys[splitIndex]);
+            node->parent->keys.insert(node->parent->keys.begin() + split, node->keys[splitIndex]);
         }
 
         //For  efficiency we just reuse the old leaf
@@ -227,7 +253,7 @@ public:
         new_node->children.assign(node->children.begin() + splitIndex+1, node->children.end());
 
         node->keys.erase(node->keys.begin() + splitIndex, node->keys.end());
-        node->values.erase(node->children.begin() + splitIndex+1, node->children.end());
+        node->children.erase(node->children.begin() + splitIndex+1, node->children.end());
 
         node->rw_lock.unlock();
         new_node->rw_lock.unlock();

@@ -23,6 +23,26 @@ struct ElementBPA
 
         return key < ele.key;
     } 
+
+    bool operator>(const ElementBPA<KeyType, ValueType>& ele) const {
+        if (ele.isNull && !isNull)
+            return true;
+        if (isNull)
+            return false;
+
+
+        return key > ele.key;
+    } 
+
+    bool operator !=(ElementBPA<KeyType, ValueType> ele){
+        if (ele.isNull && !isNull)
+            return true;
+        if (isNull)
+            return false;
+
+
+        return key != ele.key;
+    } 
 };
 
 
@@ -391,7 +411,7 @@ public:
 
 int add_five(int x) { return x + 5; };
 
-int main() {
+/*int main() {
     //ElementBPA<int, int> s(1, 2);
     BPA<int, int> tester(4, 4, 4);
     tester.insert(7, 0);
@@ -419,4 +439,4 @@ int main() {
     tester.printContents();
 
     //ElementBPA<int, int> g = new ElementBPA(1, 5);
-}
+}*/
