@@ -2,6 +2,7 @@
 #include <vector>
 #include <queue>
 #include <chrono>
+#include <random>
 #include "b+Tree.h"
 #include "bp_tree.cpp"
 
@@ -11,17 +12,17 @@ using namespace std::chrono;
 int main()
 {
     // Create uniform random distribution.
-    uniform_int_distribution<int> distr(0,2000000000000);
+    uniform_int_distribution<int> distr(0,2000000000);
     random_device rand;
     mt19937 gen(rand());
 
     // Create BP tree.
 
 
-    BPTree<int, std::string> bPTree(256, 256, 256, 200);
+    BPTree<int, std::string> bPTree(128, 64, 64, 32);
 
     // Populate initial data set.
-    for (int i = 0; i < 10000000; i++)
+    for (int i = 0; i < 10000; i++)
     {
         bPTree.insert(distr(gen), "value");
     }
@@ -31,7 +32,7 @@ int main()
     auto start = high_resolution_clock::now();
     for (int i = 0; i < 10000000; i++)
     {
-        bPTree.insert(distr(gen));
+        bPTree.insert(distr(gen), "value");
     }
     auto stop = high_resolution_clock::now();
     auto duration = duration_cast<microseconds>(stop-start);
@@ -39,54 +40,51 @@ int main()
 
     // Create B+ tree.
     int node_size = 256;
-    BPlusTree<int, std::string> bPlusTree();
+    BPlusTree<int, std::string> bPlusTree(256);
 
     // Populate initial data set.
     for (int i = 0; i < 10000000; i++)
     {
-        bPtree.insert(distr(gen));
+        bPTree.insert(distr(gen), "value");
     }
 
     // Insert another 10M entries.
     // Start the clock on the inserts.
-    auto start = high_resolution_clock::now();
+    start = high_resolution_clock::now();
     for (int i = 0; i < 10000000; i++)
     {
-        bPtree.insert(distr(gen));
+        bPTree.insert(distr(gen), "value");
     }
-    auto stop = high_resolution_clock::now();
-    auto duration = duration_cast<microseconds>(stop-start);
+    stop = high_resolution_clock::now();
+    duration = duration_cast<microseconds>(stop-start);
     cout << " Duration of B+ Tree for inserts: " << duration.count() << endl;
 
 
     // Point find queries on BP tree.
-    auto start = high_resolution_clock::now();
+    start = high_resolution_clock::now();
     for (int i = 0; i < 100000; i++)
     {
         // Perform find queries.
     }
-    auto stop = high_resolution_clock::now();
-    auto duration = duration_cast<microseconds>(stop-start);
+    stop = high_resolution_clock::now();
+    duration = duration_cast<microseconds>(stop-start);
     cout << " Duration of BP Tree for inserts: " << duration.count() << endl;
     
 
     // Point find queries on B+ tree.
-    auto start = high_resolution_clock::now();
+    start = high_resolution_clock::now();
     for (int i = 0; i < 100000; i++)
     {
         // Perform find queries.
     }
-    auto stop = high_resolution_clock::now();
-    auto duration = duration_cast<microseconds>(stop-start);
+    stop = high_resolution_clock::now();
+    duration = duration_cast<microseconds>(stop-start);
     cout << " Duration of B+ Tree for finds: " << duration.count() << endl;
 
 
     // Time range queries.
     // Generate random max_range.
     int max_size = 100000;
-    uniform_int_distribution<int> distr(1, max_size - 1);
-    random_device rand2;
-    mt19937 gen(rand2());
     int range_lengths[10];
 
     for (int i = 0; i < 10; i++)
@@ -95,43 +93,43 @@ int main()
     }
 
     // Perform queries at randomly determined ranges for BP tree.
-    auto start = high_resolution_clock::now();
+    start = high_resolution_clock::now();
     for (int i = 0; i < sizeof(range_lengths); i++)
     {
 
     }
-    auto stop = high_resolution_clock::now();
-    auto duration = duration_cast<microseconds>(stop-start);
+    stop = high_resolution_clock::now();
+    duration = duration_cast<microseconds>(stop-start);
     cout << " Duration of BP Tree for range queries: " << duration.count() << endl;
 
     // Perform queries at randomly determined ranges for B+ tree.
-    auto start = high_resolution_clock::now();
+    start = high_resolution_clock::now();
     for (int i = 0; i < sizeof(range_lengths); i++)
     {
 
     }
-    auto stop = high_resolution_clock::now();
-    auto duration = duration_cast<microseconds>(stop-start);
+    stop = high_resolution_clock::now();
+    duration = duration_cast<microseconds>(stop-start);
     cout << " Duration of B+ Tree for range queries: " << duration.count() << endl;
 
     // Insert monotonically increasing values.
-    auto start = high_resolution_clock::now();
+    start = high_resolution_clock::now();
     for (int i = 0; i < 10000000; i++)
     {
-        bptree.insert(i * i * i)
+        bPTree.insert(i * i * i, "value");
     }
-    auto stop = high_resolution_clock::now();
-    auto duration = duration_cast<microseconds>(stop-start);
+    stop = high_resolution_clock::now();
+    duration = duration_cast<microseconds>(stop-start);
     cout << " Duration of BP Tree for monotonically increasing inserts: " << duration.count() << endl;
 
     // Insert monotonically increasing values.
-    auto start = high_resolution_clock::now();
+    start = high_resolution_clock::now();
     for (int i = 0; i < 10000000; i++)
     {
-        bplustree.insert(i * i * i)
+        //bplustree.insert(i * i * i)
     }
-    auto stop = high_resolution_clock::now();
-    auto duration = duration_cast<microseconds>(stop-start);
+    stop = high_resolution_clock::now();
+    duration = duration_cast<microseconds>(stop-start);
     cout << " Duration of B+ Tree for monotonically increasing inserts: " << duration.count() << endl;
 
     /* Insert key-value pairs
