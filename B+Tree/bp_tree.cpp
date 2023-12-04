@@ -11,7 +11,7 @@ template <typename KeyType, typename ValueType>
 class BPTreeNode
 {
 public:
-    mutable shared_mutex rw_lock; //R/W mutex for handling thread safety
+    mutable shared_timed_mutex rw_lock; //R/W mutex for handling thread safety
 
     virtual ~BPTreeNode() = default;
 };
@@ -150,7 +150,7 @@ public:
         }
         // Normal case, no need to create new root node
         else {
-            leaf->rw_lock.lock();
+
             leaf_one->rw_lock.lock();
             leaf_two->rw_lock.lock();
 
@@ -290,7 +290,7 @@ public:
             need_write = true;
             if (leaf->bpa.sorted_log) {
                 for(int i = 1; i < bpa_num_blocks; i++) {
-                    if (leaf->bpa.header_ptr[i] < start && ! leaf->bpa.sorted_blocks[i])
+                    if (leaf->bpa.header_ptr[i].key < start && ! leaf->bpa.sorted_blocks[i])
                         break;
                 }
 

@@ -3,6 +3,7 @@
 #include <queue>
 #include <functional> // Add this include for std::function
 #include "b+TreeNode.h"
+#include <algorithm>
 
 using namespace std;
 
